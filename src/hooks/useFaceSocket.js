@@ -2,18 +2,18 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 export default function useFaceSocket(videoRef, isRunning) {
   const wsRef = useRef(null);
-  const intervalRef = useRef(null);
+  const stopRef = useRef(false);
+
   const [faces, setFaces] = useState([]);
 
   // ---------------------------
-  // CONNECT SOCKET
+  // CONNECT
   // ---------------------------
 
   const connect = useCallback(() => {
     if (wsRef.current) return;
 
     const ws = new WebSocket("ws://127.0.0.1:8000/ws/recognize");
-    wsRef.current = ws;
 
     ws.onopen = () => {
       console.log("WebSocket connected");
@@ -24,14 +24,15 @@ export default function useFaceSocket(videoRef, isRunning) {
         const data = JSON.parse(event.data);
         setFaces(data.faces || []);
       } catch (e) {
-        console.log("WS parse error", e);
+        console.log(e);
       }
     };
 
     ws.onclose = () => {
-      console.log("WebSocket closed");
       wsRef.current = null;
     };
+
+    wsRef.current = ws;
   }, []);
 
   // ---------------------------
@@ -57,22 +58,43 @@ export default function useFaceSocket(videoRef, isRunning) {
   }, [videoRef]);
 
   // ---------------------------
-  // AUTO STREAMING LOOP
+  // CONTROLLED LOOP (IMPORTANT)
   // ---------------------------
 
-  useEffect(() => {
-    if (!isRunning) return;
+  const startLoop = useCallback(async () => {
+    stopRef.current = false;
 
     connect();
 
-    intervalRef.current = setInterval(() => {
+    while (!stopRef.current) {
       sendFrame();
-    }, 200); // 5 fps (adjust if needed)
+
+      // ⏱ WAIT BETWEEN REQUESTS (CHANGE THIS)
+      await new Promise(res => setTimeout(res, 3000)); 
+      // ↑ 1 second delay (you can change it to 2000, 3000 etc)
+    }
+  }, [connect, sendFrame]);
+
+  const stopLoop = useCallback(() => {
+    stopRef.current = true;
+  }, []);
+
+  // ---------------------------
+  // EFFECT
+  // ---------------------------
+
+  useEffect(() => {
+    if (!isRunning) {
+      stopLoop();
+      return;
+    }
+
+    startLoop();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      stopLoop();
     };
-  }, [isRunning, connect, sendFrame]);
+  }, [isRunning, startLoop, stopLoop]);
 
   // ---------------------------
   // CLEANUP
@@ -80,8 +102,8 @@ export default function useFaceSocket(videoRef, isRunning) {
 
   useEffect(() => {
     return () => {
+      stopRef.current = true;
       if (wsRef.current) wsRef.current.close();
-      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
 

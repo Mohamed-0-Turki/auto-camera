@@ -1,4 +1,8 @@
 import Camera from "./components/Camera";
+import Controllers from "./components/Controllers";
+import FaceAlerts from "./components/FaceAlerts";
+import FaceOverlay from "./components/FaceOverlay";
+import Timer from "./components/Timer";
 import useCamera from "./hooks/use-camera";
 import useFaceSocket from "./hooks/useFaceSocket";
 
@@ -13,7 +17,18 @@ function App() {
 
   const { faces } = useFaceSocket(videoRef, isRunning);
 
-  console.log(faces[0]?.name);
+  // [
+  //   {
+  //       "name": "Unknown",
+  //       "confidence": 0.39,
+  //       "bbox": [
+  //           512,
+  //           159,
+  //           950,
+  //           725
+  //       ]
+  //   }
+  // ]
 
   return (
     <div className="5">
@@ -21,15 +36,12 @@ function App() {
         Auto Camera
       </h1>
 
-      <Camera
-        camera={{
-          videoRef,
-          openCamera,
-          stopStream,
-          timer,
-          isRunning,
-        }}
-      />
+      <Camera videoRef={videoRef}>
+        <Timer timer={timer} />
+        <FaceOverlay videoRef={videoRef} faces={faces} />
+        <FaceAlerts faces={faces} />
+        <Controllers isRunning={isRunning} openCamera={openCamera} stopStream={stopStream} />
+      </Camera>
     </div>
   );
 }
