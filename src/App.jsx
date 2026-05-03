@@ -13,6 +13,7 @@ import useEnrollSocket from "./hooks/useEnrollSocket";
 function App() {
   const [tab, setTab] = useState();
   const [studentName, setStudentName] = useState("");
+  const [enrollStarted, setEnrollStarted] = useState(false);
 
   const {
     videoRef,
@@ -22,13 +23,18 @@ function App() {
     isRunning,
   } = useCamera();
 
-  // prevent start without name
+  // 🔹 Only allow recognition from global start
   const handleStart = () => {
-    if (tab === "enroll" && !studentName.trim()) {
-      return;
+    if (tab === "recognize") {
+      openCamera();
     }
+  };
 
-    openCamera();
+  // 🔹 Handle tab switching safely
+  const handleTabChange = (value) => {
+    setTab(value);
+    setEnrollStarted(false);
+    stopStream();
   };
 
   const { faces } = useFaceSocket(
@@ -39,11 +45,10 @@ function App() {
   const enroll = useEnrollSocket(
     videoRef,
     studentName,
-    isRunning && tab === "enroll"
+    isRunning && tab === "enroll" && enrollStarted
   );
 
-  const isEnrollDisabled =
-    tab === "enroll" && !studentName.trim();
+  const isEnrollDisabled = !studentName.trim();
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -63,7 +68,7 @@ function App() {
           {/* Tabs */}
           <div className="bg-white p-1 rounded-xl shadow-sm w-fit flex">
             <button
-              onClick={() => setTab("recognize")}
+              onClick={() => handleTabChange("recognize")}
               className={`px-5 py-2 rounded-lg font-medium transition ${
                 tab === "recognize"
                   ? "bg-blue-500 text-white shadow"
@@ -74,7 +79,7 @@ function App() {
             </button>
 
             <button
-              onClick={() => setTab("enroll")}
+              onClick={() => handleTabChange("enroll")}
               className={`px-5 py-2 rounded-lg font-medium transition ${
                 tab === "enroll"
                   ? "bg-emerald-500 text-white shadow"
@@ -86,10 +91,10 @@ function App() {
           </div>
         </div>
 
-        {/* Enroll Input */}
+        {/* Enroll Section */}
         {tab === "enroll" && (
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <label className="text-sm text-gray-600 block mb-1">
+          <div className="bg-white p-4 rounded-xl shadow-sm space-y-3">
+            <label className="text-sm text-gray-600 block">
               Student Name
             </label>
 
@@ -100,9 +105,22 @@ function App() {
               className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-400"
             />
 
+            <button
+              onClick={() => {
+                if (!studentName.trim()) return;
+
+                setEnrollStarted(true);
+                openCamera();
+              }}
+              className="w-full bg-emerald-500 text-white py-2 rounded-lg font-medium disabled:opacity-50"
+              disabled={isEnrollDisabled}
+            >
+              Start Enrollment
+            </button>
+
             {isEnrollDisabled && (
-              <p className="text-xs text-red-500 mt-2">
-                Student name is required to start enrollment
+              <p className="text-xs text-red-500">
+                Student name is required
               </p>
             )}
           </div>
@@ -122,7 +140,7 @@ function App() {
             )}
 
             {/* Enrollment UI */}
-            {tab === "enroll" && isRunning && (
+            {tab === "enroll" && isRunning && enrollStarted && (
               <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-md text-white p-4 rounded-xl shadow-xl w-64">
                 
                 <div className="text-sm opacity-80">
@@ -153,11 +171,12 @@ function App() {
               </div>
             )}
 
+            {/* Controllers (disabled in enroll) */}
             <Controllers
               isRunning={isRunning}
               openCamera={handleStart}
               stopStream={stopStream}
-              disabled={isEnrollDisabled}
+              disabled={tab === "enroll"}
             />
           </Camera>
         </div>
